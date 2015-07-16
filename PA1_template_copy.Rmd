@@ -8,7 +8,7 @@ output:
 
 ## Loading and preprocessing the data
 
-```{r echo=FALSE}
+```{r echo=FALSE, results='hide', warning=FALSE}
 options(width=120)
 library(sqldf)
 library(lattice)
@@ -27,15 +27,13 @@ allData$date <- as.Date(allData$date, "%Y-%m-%d")
 **1.Average total Number Of Steps per day**
 ```{r}
 allCompleteData <- allData[complete.cases(allData),]
-stepsByDate <- tapply(allData$steps, allData$date, FUN=sum, na.rm=TRUE)
-mean(stepsByDate)
+stepsByDate <- aggregate(steps~date, allCompleteData, sum, na.rm=TRUE)
+mean(stepsByDate$steps);median(stepsByDate$steps)
 ```
-```{r}
-median(stepsByDate)
-```
+
 **1. Histogram of Toal number of Steps per Day**
 ```{r}
-hist(stepsByDate, breaks=20, col="blue")
+hist(stepsByDate$steps, xlab="Total No. Of Steps", ylab="Days", main="2. Histogram of Steps By Day")
 ```
 
 ## What is the average daily activity pattern?
@@ -47,7 +45,7 @@ plot(avgActivityInMinutesInterval$interval, avgActivityInMinutesInterval$steps, 
 
 **2. Following 5 minute interval has maximum number of steps on average**
 ```{r}
-avgActivityInMinutesInterval[avgActivityInMinutesInterval$steps==max(avgActivityInMinutesInterval$steps),]
+avgActivityInMinutesInterval[avgActivityInMinutesInterval$steps==max(avgActivityInMinutesInterval$steps),]$interval
 ```
 ## Imputing missing values
 
@@ -58,34 +56,31 @@ nrow(allData[is.na(allData$steps),])
 
 **Following code fills in the NAs with average values for the interval calculated over all dates.**
 ```{r}
-meanStepsInInterval <- aggregate(steps~interval, allData, mean)
+meanStepsInInterval <- aggregate(steps~interval, allCompleteData, mean)
 allDataFilled <- sqldf(c("update allData set steps=(select steps from meanStepsInInterval a where a.interval=allData.interval) where steps is null", "select * from allData"))
-
 ```
 
+**1. As can be seen from the histograms below, the mean value of number of steps taken when value is missing for the interval is same for all missing intervals. This implies that values are missing for all full day.**
 
 ```{r}
-filledStepsByDate <- tapply(allDataFilled$steps, allDataFilled$date, FUN=sum, na.rm=TRUE)
+filledStepsByDate <- aggregate(steps~date, allDataFilled, sum)
 par(mfcol=c(1,2))
-hist(filledStepsByDate, breaks=20, xlab="Total No. Of Steps", ylab="Days", main="NAs filled by average for the interval", col="red")
-hist(stepsByDate, breaks=20, xlab="Total No. Of Steps", ylab="Days", main="NAs removed", col="blue")
+hist(filledStepsByDate$steps, xlab="Total No. Of Steps", ylab="Days", main="NAs filled by average for the interval")
+hist(stepsByDate$steps, xlab="Total No. Of Steps", ylab="Days", main="NAs removed")
 ```
-
 
 **1.Average total Number Of Steps per day after filling NAs with average steps for the interval of all the days**
 ```{r}
-mean(filledStepsByDate)
-```
-```{r}
-median(filledStepsByDate);
+mean(filledStepsByDate$steps);median(filledStepsByDate$steps);
 ```
 
-Mean and median values of number of steps after replacing NAs with average value for that interval is different from when NAs are removed from calculation  
+**Observations**  
+As can be seen from above the imputing missing values does not affect the average total number of daily steps.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
 ```{r}
 weekends <- c("Saturday","Sunday")
 allDataFilled$isWeekend <- factor(weekdays(allDataFilled$date) %in% weekends, levels=c(TRUE,FALSE), labels=c("weekend","weekday"))
-xyplot(steps~interval | isWeekend, index.cond=list(c(2,1)), data=allDataFilled, layout=c(1,2), xlab="Interval", ylab="Number Of Steps", type="a")
+xyplot(steps~interval | isWeekend, index.cond=list(c(2,1)), data=allDataFilled, layout=c(1,2), xlab="Interval", ylab="Number Of Steps", type="l")
 ```
